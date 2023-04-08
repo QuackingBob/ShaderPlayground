@@ -95,6 +95,10 @@
     <h4>Enter a pallete url from coolers ex: https://coolors.co/palette/e63946-f1faee-a8dadc-457b9d-1d3557</h4>
     <input type="text" id="palette_url">
     <button type="button" id="submit_palette" onclick="updatePalette()">Change Palette</button>
+    <br>
+    <br>
+    <select id="paletteDropdown" onchange="updatePalettePresets()">
+    </select>
   </div>
 
   <h3>Logs</h3>
@@ -126,10 +130,32 @@
     var max_n = 10;
 
     urlToRgb("https://coolors.co/palette/e63946-f1faee-a8dadc-457b9d-1d3557")
-    // purple: https://coolors.co/palette/231942-5e548e-9f86c0-be95c4-e0b1cb
-    // blue red grad: https://coolors.co/palette/001219-005f73-0a9396-94d2bd-e9d8a6-ee9b00-ca6702-bb3e03-ae2012-9b2226
-    // green grad: https://coolors.co/000000-0d1111-26302b-a19c79-949f92-dee7dc
-    // tan green: https://coolors.co/e1ca96-aca885-918b76-626c66-434a42
+
+    var palettes = {
+      "default": "https://coolors.co/palette/e63946-f1faee-a8dadc-457b9d-1d3557",
+      "purple": "https://coolors.co/palette/231942-5e548e-9f86c0-be95c4-e0b1cb",
+      "blueredgrad": "https://coolors.co/palette/001219-005f73-0a9396-94d2bd-e9d8a6-ee9b00-ca6702-bb3e03-ae2012-9b2226",
+      "greengrad": "https://coolors.co/000000-0d1111-26302b-a19c79-949f92-dee7dc",
+      "tangreen": "https://coolors.co/e1ca96-aca885-918b76-626c66-434a42",
+      "candy": "https://coolors.co/6dd3ce-c8e9a0-f7a278-a13d63-351e29",
+      "blueorange": "https://coolors.co/2d3142-bfc0c0-ffffff-ef8354-4f5d75",
+    };
+
+    var select = document.getElementById("paletteDropdown");
+
+    for (var key in palettes) {
+      var option = document.createElement("option");
+      option.text = key;
+      option.value = palettes[key];
+      select.appendChild(option);
+    }
+
+    function updatePalettePresets() {
+      var url = document.getElementById("paletteDropdown").value;
+      console.log("loading palette: " + url);
+      urlToRgb(url);
+      updateImage();
+    }
 
     function updateImage() {
       const canvas = document.getElementById("canvas");
@@ -151,17 +177,22 @@
       mode_indicator = document.getElementById("mode");
       if (mode == 1) {
         mode = 0;
-        mode.innerHTML = "Mode: Tanh Thresholding";
+        mode_indicator.innerHTML = "Mode: Tanh Thresholding";
       }
       else {
         mode = 1;
-        mode.innerHTML = "Mode: N Tone Mapper";
+        mode_indicator.innerHTML = "Mode: N Tone Mapper";
       }
       updateImage();
     }
 
     function reversePalette() {
-      rgb_vals.reverse();
+      new_rgb = [];
+      for (var i = rgb_vals.length / 3 - 1; i >= 0; i--) {
+        var index = i * 3;
+        new_rgb.push(rgb_vals[index], rgb_vals[index + 1], rgb_vals[index + 2]);
+      }
+      rgb_vals = new_rgb;
       updateImage();
     }
 
