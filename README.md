@@ -1,4 +1,4 @@
-This is just a plaayground to test shaders on images locally. 
+This is just a playground to test shaders on images locally. 
 Just run 
 ```
 python -m http.server
