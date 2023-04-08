@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Shaders</title>
+  <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/gl-matrix/2.8.1/gl-matrix-min.js"></script> -->
+  <script src="vertexDOGShader.glsl"></script>
+  <script src="fragmentDOGShader.glsl"></script>
+  <style>
+    /* { box-sizing: border-box; margin: 0; padding: 0; } */
+    body { font-family: Arial, sans-serif; color: white; background: linear-gradient(to right, #0f2027, #203a43, #2c5364); }
+    
+    h3, h4 { text-align: center; }
+    
+    #webgl-canvas { display: block; margin: auto; width: 80%; height: 80%; border: 5px solid white; }
+    #canvas { display: block; margin: auto; width: 80%; height: 80%; border: 5px solid white; }
+    
+    .slidecontainer { width: 80%; margin: auto; padding: 20px; }
+    
+    .slider { -webkit-appearance: none; width: 100%; height: 15px; border-radius: 5px; background: #d3d3d3; outline: none; opacity: 0.7; -webkit-transition: .2s; transition: opacity .2s; }
+    
+    .slider:hover { opacity: 1; }
+    
+    .slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 25px; height: 25px; border-radius: 50%; background: #f5fff5; cursor: pointer; }
+    
+    .slider::-moz-range-thumb { width: 25px; height: 25px; border-radius: 50%; background: #f5fff5; cursor: pointer; }
+    
+    table { width: 100%; border-collapse: collapse; }
+    
+    td { width: 33%; padding: 10px; }
+    
+    #palette_url { width: calc(100% - 120px); margin-right: 10px; }
+
+    button { display: inline-block; padding: 10px 20px; border: none; border-radius: 5px; background: #464646; color: white; font-size: 16px; cursor: pointer; box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2); transition: 0.3s; }
+
+    button:hover { box-shadow: 0 8px 16px 0 rgba(0,0,0,0.2); transform: scale(1.1); }
+
+    label { display: inline-block; padding: 10px 20px; border: none; border-radius: 5px; background: #464646; color: white; font-size: 16px; cursor: pointer; box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2); transition: 0.3s; }
+
+    label:hover { box-shadow: 0 8px 16px 0 rgba(0,0,0,0.2); transform: scale(1.1); }
+
+    .button-container { display: block; justify-content: center; align-items: center; width: 80%; margin: auto; padding: 20px;  }
+    
+  </style>
+</head>
+
+<body>
+  <h3 id="fps_counter">FPS: </h3>
+  <canvas id="webgl-canvas" style="background: black;"></canvas>
+  <div class="slidecontainer">
+    <table>
+      <tr>
+        <td>
+          <h4 id="tau_val">Tau:</h4>
+          <input type="range" min="1" max="200" value="50" class="slider" id="tau">
+        </td>
+        <td>
+          <h4 id="sigma_val">Tau:</h4>
+          <input type="range" min="1" max="200" value="50" class="slider" id="sigma">
+        </td>
+        <td>
+          <h4 id="k_val">Tau:</h4>
+          <input type="range" min="1" max="200" value="50" class="slider" id="k">
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <h4 id="phi_val">Tau:</h4>
+          <input type="range" min="1" max="200" value="50" class="slider" id="phi">
+        </td>
+        <td>
+          <h4 id="epsilon_val">Tau:</h4>
+          <input type="range" min="1" max="100" value="50" class="slider" id="epsilon">
+        </td>
+        <td>
+          <h4 id="radius_val">Tau:</h4>
+          <input type="range" min="1" max="100" value="50" class="slider" id="radius">
+        </td>
+      </tr>
+    </table>
+    <h4 id="kernel_size_val">Tau:</h4>
+    <input type="range" min="1" max="100" value="3" class="slider" id="kernel_size">
+    <h4 id="canvas_width_val">Tau:</h4>
+    <input type="range" min="1" max="100" value="16" class="slider" id="canvas_width">
+    <br>
+    <br>
+    <h4 id="mode">Mode: N Tone Mapper</h4>
+    <button type="button" id="toggle_mode" onclick="updateMode()">Toggle Mode</button>
+    <br>
+    <br>
+    <h4 id="swap-palette-scheme">Swap Palette Scheme</h4>
+    <button type="button" id="toggle_scheme" onclick="reversePalette()">Switch Palette</button>
+    <br>
+    <br>
+    <h4>Enter a pallete url from coolers ex: https://coolors.co/palette/e63946-f1faee-a8dadc-457b9d-1d3557</h4>
+    <input type="text" id="palette_url">
+    <button type="button" id="submit_palette" onclick="updatePalette()">Change Palette</button>
+  </div>
+
+  <h3>Logs</h3>
+  <p id="log"></p>
+
+  <div class=“button-container”> 
+    <!-- <label for="fileInput">Choose an image</label> -->
+    <input type="file" id="fileInput" onchange="loadImage()" />
+  </div>
+  <br />
+  <canvas id="canvas"></canvas>
+
+  <script>
+    var mode = 1;
+
+    const scales = {
+      "tau": 4.0/100.0,
+      "sigma": 4.0/100.0,
+      "k": 4.0/100.0,
+      "phi": 4.0/100.0,
+      "epsilon": 1.0/100.0,
+      "kernel_size": 1,
+      "radius": 10.0/100.0,
+      "canvas_width": 64
+    };
+
+    var rgb_vals = [];
+    var palette_size = 5;
+    var max_n = 10;
+
+    urlToRgb("https://coolors.co/palette/e63946-f1faee-a8dadc-457b9d-1d3557")
+    // purple: https://coolors.co/palette/231942-5e548e-9f86c0-be95c4-e0b1cb
+    // blue red grad: https://coolors.co/palette/001219-005f73-0a9396-94d2bd-e9d8a6-ee9b00-ca6702-bb3e03-ae2012-9b2226
+    // green grad: https://coolors.co/000000-0d1111-26302b-a19c79-949f92-dee7dc
+    // tan green: https://coolors.co/e1ca96-aca885-918b76-626c66-434a42
+
+    function updateImage() {
+      const canvas = document.getElementById("canvas");
+      const ctx = canvas.getContext('2d');
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const img = new Image();
+      img.src = canvas.toDataURL();
+      main(img, getSlider("tau"), getSlider("sigma"), getSlider("k"), getSlider("phi"), getSlider("epsilon"), getSlider("kernel_size"), getSlider("radius"));
+    }
+
+    function updatePalette() {
+      text = document.getElementById("palette_url").value;
+      console.log(text);
+      urlToRgb(text);
+      updateImage();
+    }
+
+    function updateMode() {
+      mode_indicator = document.getElementById("mode");
+      if (mode == 1) {
+        mode = 0;
+        mode.innerHTML = "Mode: Tanh Thresholding";
+      }
+      else {
+        mode = 1;
+        mode.innerHTML = "Mode: N Tone Mapper";
+      }
+      updateImage();
+    }
+
+    function reversePalette() {
+      rgb_vals.reverse();
+      updateImage();
+    }
+
+    sliderUpdate("tau");
+    sliderUpdate("sigma");
+    sliderUpdate("k");
+    sliderUpdate("phi");
+    sliderUpdate("epsilon");
+    sliderUpdate("kernel_size");
+    sliderUpdate("radius");
+    sliderUpdate("canvas_width")
+
+    // A function to convert a hex color to an rgb color
+    function hexToRgb(hex) {
+      // Remove the # symbol if present
+      if (hex.charAt(0) === "#") {
+        hex = hex.slice(1);
+      }
+      // Parse the hex string into three numbers
+      var r = parseInt(hex.slice(0, 2), 16);
+      var g = parseInt(hex.slice(2, 4), 16);
+      var b = parseInt(hex.slice(4, 6), 16);
+      // Return an array of rgb values
+      return [r, g, b];
+    }
+
+    // A function to extract the hex colors from a url string
+    function getHexColors(url) {
+      // Split the url by the / character
+      var parts = url.split("/");
+      // Get the last part of the url, which contains the hex colors
+      var hexColors = parts[parts.length - 1];
+      // Split the hex colors by the - character
+      var hexArray = hexColors.split("-");
+      // Return an array of hex colors
+      return hexArray;
+    }
+
+    // A function to convert a url string to an array of rgb values
+    function urlToRgb(url) {
+      // Get the array of hex colors from the url
+      var hexArray = getHexColors(url);
+      // Initialize an empty array to store the rgb values
+      var rgbArray = [];
+      // Loop through the hex array and convert each color to rgb
+      for (var i = 0; i < hexArray.length && i < max_n; i++) {
+        var hex = hexArray[i];
+        var rgb = hexToRgb(hex);
+        // Push the rgb array to the rgb array
+        rgbArray.push(rgb[0], rgb[1], rgb[2]);
+      }
+      // Return the array of rgb values
+      // return rgbArray;
+      rgb_vals = rgbArray;
+      palette_size = hexArray.length;
+    }
+
+    function sliderUpdate(name) {
+      var slider = document.getElementById(name);
+      var slider_val = document.getElementById(name + "_val");
+      slider_val.innerHTML = name + ": " + slider.value * scales[name];
+      slider.oninput = function() {
+        slider_val.innerHTML = name + ": " + this.value * scales[name];
+        updateImage();
+      }
+    }
+
+    function getSlider(name) {
+      return document.getElementById(name).value * scales[name];
+    }
+
+    async function loadImage() {
+      const fileInput = document.getElementById("fileInput");
+      const canvas = document.getElementById("canvas");
+      const ctx = canvas.getContext("2d");
+      const file = fileInput.files[0];
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        const img = new Image();
+        img.onload = function () {
+          canvas.width = getSlider("canvas_width");
+          canvas.height = (canvas.width / img.width) * img.height;
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        };
+        img.src = e.target.result;
+        console.log("loaded image \"" + img.src + "\"");
+        console.log("loaded image \"" + file.name + "\"");
+
+        main(img, getSlider("tau"), getSlider("sigma"), getSlider("k"), getSlider("phi"), getSlider("epsilon"), getSlider("kernel_size"), getSlider("radius"));
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function loadTexture(gl, img) {
+      const texture = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+
+      const level = 0;
+      const internalFormat = gl.RGBA;
+      const width = 1;
+      const height = 1;
+      const border = 0;
+      const srcFormat = gl.RGBA;
+      const srcType = gl.UNSIGNED_BYTE;
+
+      gl.texImage2D(
+        gl.TEXTURE_2D,
+        level,
+        internalFormat,
+        srcFormat,
+        srcType,
+        img
+      );
+
+      if (isPowerOf2(img.width) && isPowerOf2(img.height)) {
+        gl.generateMipmap(gl.TEXTURE_2D);
+      }
+      else {
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      }
+
+      return texture;
+    }
+
+    function isPowerOf2(value) {
+      return (value & value - 1) == 0;
+    }
+
+    function initTextureBuffer(gl) {
+        const textureCoordBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, textureCoordBuffer);
+
+        const textureCoordinates = [
+            0.0, 0.0,
+            0.0, 1.0,
+            1.0, 1.0,
+            1.0, 1.0,
+            1, 0,
+            0, 0
+        ];
+
+        gl.bufferData(
+            gl.ARRAY_BUFFER,
+            new Float32Array(textureCoordinates),
+            gl.STATIC_DRAW
+        );
+
+        return textureCoordBuffer;
+    }
+
+    function setTextureAttribute(gl, texture_coord_buffer, program_info) {
+      const num = 2; // each coord has 2 vals
+      const type = gl.FLOAT; // the data is 32 bit buffer
+      const normalize = false; // don't normalize
+      const stride = 0; // how many bytes to get from one set to the next
+      const offset = 0; // how many bytes inside the buffer to start from
+      gl.bindBuffer(gl.ARRAY_BUFFER, texture_coord_buffer);
+      gl.vertexAttribPointer(
+        program_info.attribute_locations.texture_coord, 
+        num,
+        type,
+        normalize, 
+        stride,
+        offset
+      );
+      gl.enableVertexAttribArray(program_info.attribute_locations.texture_coord);
+    }
+
+    async function main(img, tau, sigma, k, phi, epsilon, kernel_size, radius) {
+      var vert;
+      var frag;
+
+      const response1 = await fetch('vertexDOGShader.glsl');
+      vert = await response1.text();
+
+      const response2 = await fetch('fragmentDOGShader.glsl');
+      frag = await response2.text();
+
+      console.log("vert: " + vert);
+      console.log("frag: " + frag);
+
+      document.getElementById("log").innerHTML = "";
+
+      var canvas = document.getElementById("webgl-canvas");
+      canvas.height = img.height;
+      canvas.width = img.width;
+
+      var gl = document.getElementById("webgl-canvas").getContext('webgl');
+
+      var vertexShader = createShader(gl, gl.VERTEX_SHADER, vert);
+      var fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, frag);
+      var program = createProgram(gl, vertexShader, fragmentShader);
+
+      const program_info = {
+        program: program,
+        attribute_locations: {
+          vertex_position: gl.getAttribLocation(program, "a_position"),
+          texture_coord: gl.getAttribLocation(program, "aTextureCoord")
+        },
+        uniformLocations: {
+          u_sampler: gl.getUniformLocation(program, "uSampler"),
+          u_resolution: gl.getUniformLocation(program, "uResolution"),
+          u_sigma: gl.getUniformLocation(program, "uSigma"),
+          u_kernel_size: gl.getUniformLocation(program, "uKernelSize"),
+          u_tau: gl.getUniformLocation(program, "uTau"),
+          u_k: gl.getUniformLocation(program, "uK"),
+          u_phi: gl.getUniformLocation(program, "uPhi"),
+          u_epsilon: gl.getUniformLocation(program, "uEpsilon"),
+          u_radius: gl.getUniformLocation(program, "uRadius"),
+          u_n_colors: gl.getUniformLocation(program, "uN"),
+          u_rgb_vals: gl.getUniformLocation(program, "rgb_vals"),
+          u_mode: gl.getUniformLocation(program, "uMode")
+        }
+      };
+
+      const texture = loadTexture(gl, img);
+      var texture_coord_buffer = initTextureBuffer(gl);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+
+      var positionBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+
+      var positions = [
+        -1, -1,
+        -1, 1,
+        1, 1,
+        1, 1,
+        1, -1,
+        -1, -1,
+      ];
+
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+
+      var fps_counter = document.getElementById("fps_counter");
+      var elapsed_time = 0;
+
+      function render(time) {
+        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+        gl.clearColor(0, 0, 0, 0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.useProgram(program);
+        gl.enableVertexAttribArray(program_info.attribute_locations.vertex_position);
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        // // Tell the attribute how to get data out of positionBuffer (ARRAY_BUFFER)
+        var size = 2;          // 2 components per iteration
+        var type = gl.FLOAT;   // the data is 32bit floats
+        var normalize = false; // don't normalize the data
+        var stride = 0;        // 0 = move forward size * sizeof(type) each iteration to get the next position
+        var offset = 0;        // start at the beginning of the buffer
+        gl.vertexAttribPointer(
+          program_info.attribute_locations.vertex_position, size, type, normalize, stride, offset)
+        
+        setTextureAttribute(gl, texture_coord_buffer, program_info);
+
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.uniform1i(program_info.uniformLocations.u_sampler, 0);
+
+        gl.uniform2f(program_info.uniformLocations.u_resolution, canvas.width, canvas.height);
+        gl.uniform1i(program_info.uniformLocations.u_kernel_size, kernel_size);
+        gl.uniform1f(program_info.uniformLocations.u_sigma, sigma);
+        gl.uniform1f(program_info.uniformLocations.u_k, k);
+        gl.uniform1f(program_info.uniformLocations.u_tau, tau);
+        gl.uniform1f(program_info.uniformLocations.u_phi, phi);
+        gl.uniform1f(program_info.uniformLocations.u_epsilon, epsilon);
+        gl.uniform1f(program_info.uniformLocations.u_radius, radius);
+        gl.uniform1i(program_info.uniformLocations.u_n_colors, palette_size);
+        gl.uniform1iv(program_info.uniformLocations.u_rgb_vals, new Int16Array(rgb_vals));
+        gl.uniform1i(program_info.uniformLocations.u_mode, mode);
+
+        var primitiveType = gl.TRIANGLES;
+        var offset = 0;
+        var count = 6;
+        gl.drawArrays(primitiveType, offset, count);
+
+        var fps = 1000 / (performance.now() - time);
+        elapsed_time += performance.now() - time;
+        if (elapsed_time > 200) {
+          fps_counter.innerHTML = "FPS: " + Math.round(fps);
+          elapsed_time = 0;
+        }
+      }
+
+      requestAnimationFrame(render);
+    }
+    
+    // main();
+
+    function createProgram(gl, vs, fs) {
+      const p = gl.createProgram();
+      gl.attachShader(p, vs);
+      gl.attachShader(p, fs);
+      gl.linkProgram(p);
+      return p;
+    }
+
+    function createShader(gl, type, src) {
+      const s = gl.createShader(type);
+      gl.shaderSource(s, src);
+      gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+        console.error('An error occurred compiling the shaders: ' + gl.getShaderInfoLog(s));
+        text = document.getElementById("log")
+        text.innerHTML += gl.getShaderInfoLog(s) + "\n\n";
+        gl.deleteShader(s);
+        return null;
+      }
+      else {
+        console.log("successfully loaded shader " + type);
+        text = document.getElementById("log")
+        text.innerHTML += "successfully loaded shader " + type + "\n\n";
+      }
+      return s;
+    }
+  </script>
+</body>
+
+</html>

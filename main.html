@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Shaders</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gl-matrix/2.8.1/gl-matrix-min.js"></script>
+  <script src="vertexShader.glsl"></script>
+  <script src="fragmentShader.glsl"></script>
+</head>
+
+<body>
+  <h3 id="fps_counter">FPS: </h3>
+  <canvas id="webgl-canvas"></canvas>
+  <h3>Logs</h3>
+  <p id="log"></p>
+  <script>
+    async function main() {
+      var vert;
+      var frag;
+
+      const response1 = await fetch('vertexShader.glsl');
+      vert = await response1.text();
+      // console.log(vert);
+
+      const response2 = await fetch('fragmentShader.glsl');
+      frag = await response2.text();
+      // console.log(frag);
+
+      console.log("vert: " + vert);
+      console.log("frag: " + frag);
+
+      // fetch ('vertexShader.glsl')
+      //   .then(response => response.text())
+      //   .then(vertexShaderSource => {
+      //     vert = vertexShaderSource;
+      //     console.log(vertexShaderSource);
+      //   });
+        
+      // fetch ('fragmentShader.glsl')
+      //   .then(response => response.text())
+      //   .then(fragmentShaderSource => {
+      //     frag = fragmentShaderSource;
+      //     console.log(fragmentShaderSource);
+      //   });
+
+      var canvas = document.getElementById("webgl-canvas");
+      canvas.height = 600;
+      canvas.width = 700;
+      var gl = document.getElementById("webgl-canvas").getContext('webgl');
+      var vertexShader = createShader(gl, gl.VERTEX_SHADER, vert);
+      var fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, frag);
+      var program = createProgram(gl, vertexShader, fragmentShader);
+      const timeLocation = gl.getUniformLocation(program, "time");
+      var positionAttributeLocation = gl.getAttribLocation(program, "a_position");
+      var positionBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+      var positions = [
+        -1, -1,
+        -1, 1,
+        1, 1,
+        1, 1,
+        1, -1,
+        -1, -1,
+      ];
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+
+      var fps_counter = document.getElementById("fps_counter");
+      var elapsed_time = 0;
+
+      function render(time) {
+        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+        gl.clearColor(0, 0, 0, 0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.useProgram(program);
+        gl.enableVertexAttribArray(positionAttributeLocation);
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        // // Tell the attribute how to get data out of positionBuffer (ARRAY_BUFFER)
+        var size = 2;          // 2 components per iteration
+        var type = gl.FLOAT;   // the data is 32bit floats
+        var normalize = false; // don't normalize the data
+        var stride = 0;        // 0 = move forward size * sizeof(type) each iteration to get the next position
+        var offset = 0;        // start at the beginning of the buffer
+        gl.vertexAttribPointer(
+          positionAttributeLocation, size, type, normalize, stride, offset)
+
+        gl.uniform1f(timeLocation, time * 0.001);
+        var primitiveType = gl.TRIANGLES;
+        var offset = 0;
+        var count = 6;
+        gl.drawArrays(primitiveType, offset, count);
+
+        var fps = 1000 / (performance.now() - time);
+        elapsed_time += performance.now() - time;
+        if (elapsed_time > 200) {
+          fps_counter.innerHTML = "FPS: " + Math.round(fps);
+          elapsed_time = 0;
+        }
+
+        requestAnimationFrame(render);
+      }
+
+      requestAnimationFrame(render);
+    }
+    
+    main();
+
+    function createProgram(gl, vs, fs) {
+      const p = gl.createProgram();
+      gl.attachShader(p, vs);
+      gl.attachShader(p, fs);
+      gl.linkProgram(p);
+      return p;
+    }
+
+    function createShader(gl, type, src) {
+      const s = gl.createShader(type);
+      gl.shaderSource(s, src);
+      gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+        console.error('An error occurred compiling the shaders: ' + gl.getShaderInfoLog(s));
+        text = document.getElementById("log")
+        text.innerHTML += gl.getShaderInfoLog(s) + "\n\n";
+        gl.deleteShader(s);
+        return null;
+      }
+      else {
+        console.log("successfully loaded shader " + type);
+        text = document.getElementById("log")
+        text.innerHTML += "successfully loaded shader " + type + "\n\n";
+      }
+      return s;
+    }
+  </script>
+
+  <input type="file" id="fileInput" onchange="loadImage()" />
+  <br />
+  <canvas id="canvas"></canvas>
+  <script>
+    async function loadImage() {
+      const fileInput = document.getElementById("fileInput");
+      const canvas = document.getElementById("canvas");
+      const ctx = canvas.getContext("2d");
+      const file = fileInput.files[0];
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        const img = new Image();
+        img.onload = function () {
+          canvas.width = 512;
+          canvas.height = (canvas.width / img.width) * img.height;
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        };
+        img.src = e.target.result;
+        console.log("loaded image \"" + img.src + "\"");
+      };
+      reader.readAsDataURL(file);
+    }
+  </script>
+</body>
+
+</html>
