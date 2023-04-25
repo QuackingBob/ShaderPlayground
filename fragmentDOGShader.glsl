@@ -32,69 +32,19 @@ vec4 gray_scale(vec4 color) {
     return vec4(luminance, luminance, luminance, luminance);
 }
 
-vec4 blur(sampler2D tex, vec2 uv, vec2 resolution, float sigma, int kernelSize) {
-    vec4 color = vec4(0.0);
-    vec2 texelSize = 1.0 / resolution;
-
-    // horizontal blur pass
-    float offset = float(kernelSize - 1) / 2.0;
-    vec2 texelOffset = vec2(offset, 0.0) * texelSize;
-    float weightSum = 0.0;
-    for (int i = 0; i < maxKernelSize; i++) {
-        if (i >= kernelSize) break;
-        float weight = gaussian(float(i) - offset, sigma);
-        color += texture2D(tex, uv + texelOffset * (float(i) - offset)) * weight;
-        weightSum += weight;
-    }
-
-    // vertical blur pass
-    texelOffset = vec2(0.0, offset) * texelSize;
-    for (int i = 0; i < maxKernelSize; i++) {
-        if (i >= kernelSize) break;
-        float weight = gaussian(float(i) - offset, sigma);
-        color += texture2D(tex, uv + texelOffset * (float(i) - offset)) * weight;
-        weightSum += weight;
-    }
-    
-    color /= weightSum;
-
-    return color;
+float tanh(float x) {
+  return (exp(x) - exp(-x)) / (exp(x) + exp(-x));
 }
 
-vec4 gray_blur(sampler2D tex, vec2 uv, vec2 resolution, float sigma, int kernelSize) {
-    vec4 color = vec4(0.0);
-    vec2 texelSize = 1.0 / resolution;
-
-    // horizontal blur pass
-    float offset = float(kernelSize - 1) / 2.0;
-    vec2 texelOffset = vec2(offset, 0.0) * texelSize;
-    float weightSum = 0.0;
-    for (int i = 0; i < maxKernelSize; i++) {
-        if (i >= kernelSize) break;
-        float weight = gaussian(float(i) - offset, sigma);
-        color += gray_scale(texture2D(tex, uv + texelOffset * (float(i) - offset))) * weight;
-        weightSum += weight;
-    }
-
-    color /= weightSum;
-
-    // vertical blur pass
-    texelOffset = vec2(0.0, offset) * texelSize;
-    weightSum = 0.0;
-    for (int i = 0; i < maxKernelSize; i++) {
-        if (i >= kernelSize) break;
-        float weight = gaussian(float(i) - offset, sigma);
-        color += gray_scale(texture2D(tex, uv + texelOffset * (float(i) - offset))) * weight;
-        weightSum += weight;
-    }
-    
-    color /= weightSum;
-
-    return color;
+float logistic(float x, float a, float b, float c, float d) {
+    return a / (b + exp(-c * (x - d)));
 }
 
+vec4 rgb(int r, int g, int b) {
+    return vec4(float(r)/255.0, float(g)/255.0, float(b)/255.0, 1.0);
+}
 
-vec4 gaussian_blur(sampler2D tex, vec2 uv, vec2 resolution, float sigma) {
+vec4 gaussian_blur(sampler2D image, vec2 uv, vec2 resolution, float sigma) {
     vec4 color = vec4(0.0);
     vec2 texelSize = 1.0 / resolution;
     int kernelSize = uKernelSize;
@@ -105,7 +55,7 @@ vec4 gaussian_blur(sampler2D tex, vec2 uv, vec2 resolution, float sigma) {
         int j = i - kernelSize;
         if (j >= kernelSize) break;
         float weight = gaussian(float(j), sigma);
-        color += gray_scale(texture2D(tex, uv + texelSize * vec2(float(j), 0.0))) * weight;
+        color += gray_scale(texture2D(image, uv + texelSize * vec2(float(j), 0.0))) * weight;
         weightSum += weight;
     }
 
@@ -117,17 +67,13 @@ vec4 gaussian_blur(sampler2D tex, vec2 uv, vec2 resolution, float sigma) {
         int j = i - kernelSize;
         if (j >= kernelSize) break;
         float weight = gaussian(float(j), sigma);
-        color += gray_scale(texture2D(tex, uv + texelSize * vec2(0.0, float(j)))) * weight;
+        color += gray_scale(texture2D(image, uv + texelSize * vec2(0.0, float(j)))) * weight;
         weightSum += weight;
     }
     
     color /= weightSum;
 
     return color;
-}
-
-float tanh(float x) {
-  return (exp(x) - exp(-x)) / (exp(x) + exp(-x));
 }
 
 vec4 threshold(vec4 color, float phi, float epsilon) {
@@ -142,10 +88,6 @@ vec4 threshold(vec4 color, float phi, float epsilon) {
     }
     // gray_rgb = 1.0 - gray_rgb;
     return gray_rgb;
-}
-
-float logistic(float x, float a, float b, float c, float d) {
-    return a / (b + exp(-c * (x - d)));
 }
 
 vec4 threetonethreshold(vec4 color) {
@@ -169,16 +111,13 @@ vec4 threetonethreshold(vec4 color) {
     return out_color * 2.5;
 }
 
-vec4 rgb(int r, int g, int b) {
-    return vec4(float(r)/255.0, float(g)/255.0, float(b)/255.0, 1.0);
-}
-
 vec4 ntonethresh(vec4 color) {
     float luminance = luminance(color);
-    // const int num = 4;
+
     float a = 0.2;
     float k = 85.0;
     float x1 = 0.18;
+
     float threshold_val;
     float scale_val;
     vec4 out_color = vec4(1.0);
@@ -205,11 +144,114 @@ vec4 ntonethresh(vec4 color) {
     return out_color;
 }
 
+// helper function to convolve kernel and pixel region
+float convolve(mat3 kernel, mat3 val) {
+    float accumulator = 0;
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            accumulator += kernel[i][j] * val[i][j];
+        }
+    }
+    return accumulator;
+}
+
+// Compute image gradients Ix and Iy using Sobel operator
+vec2 sobel(sampler2D image, vec2 uv, vec2 resolution) {
+    vec2 texel = 1.0 / resolution;
+
+    mat3 region = mat3(1);
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            region[i][j] = luminance(texture2D(image, uv + vec2(float(i - 1) * texel.x, float(j - 1) * texel.y)));
+        }
+    }
+
+    const mat3 Gx = mat3(1, 0, -1, 2, 0, -2, 1, 0, -1);
+    float grad_x = convolve(Gx, region);
+
+    const mat3 Gy = mat3(1, 2, 1, 0, 0, 0, -1, -2, -1);
+    float grad_y = convolve(Gy, region);
+
+    return vec2(grad_x, grad_y);
+}
+
+// get smoothed structure tensor
+mat2 sst(sampler2D image, vec2 uv, vec2 resolution, float sigma) {
+    vec2 grad = sobel(image, uv, resolution);
+
+    float Ix = grad.x;
+    float Iy = grad.y;
+
+    float s_xx = gaussian(Ix * Ix, sigma);
+    float s_xy = gaussian(Ix * Iy, sigma);
+    float s_yy = gaussian(Iy * Iy, sigma);
+
+    return mat2(s_xx, s_xy, s_xy, s_yy);
+}
+
+vec2 findeigenvec(float t, mat2 S) {
+    // A v = t v
+    /*
+        |a b|        |x|    |a b||x|    |x|
+    A = |c d|    v = |y|    |c d||y| = t|y|
+
+    ax + by = tx
+    cx + dy = ty
+
+    (a - t)x +       by = 0
+          cx + (d - t)y = 0
+
+    c = a - t
+    b = d - t
+    */
+    vec2 eigen_vec;
+    if (S[0][1] != 0) {
+        eigen_vec = vec2(S[0][1], t - S[0][0]);
+    }
+    else {
+        eigen_vec = vec2(1.0, - (a - t) / c);
+    }
+
+    // normalize the eigen vectors
+    eigen_vec /= length(eigen_vec);
+
+    return eigen_vec;
+}
+
+// eigen-analysis of sst (principal component analysis) first row is major, second row is minor eigenvector
+mat2 geteigenvec(sampler2D image, vec2 uv, vec2 resolution, float sigma) {
+    mat2 S = sst(image, uv, resolution, sigma);
+
+    // coefficients of polynomial (a = 1) ax^2 + bx + c
+    float b = -(S[0][0] + S[1][1]);
+    float c = (S[0][0] * S[0][1] - S[1][0] * S[1][1]);
+
+    // discriminant of quadratic formula (should be greater than 0)
+    float D = b*b - 4 * c;
+
+    // find lambda 1 & 2
+    float t1 = (b + sqrt(D)) / 2.0;
+    float t2 = (b - sqrt(D)) / 2.0;
+
+    vec2 evec1, evec2;
+    evec1 = findeigenvec(t1, S);
+    evec2 = findeigenvec(t2, S);
+
+    mat2 output;
+    if (t1 >= t2) {
+        output = mat2(evec1.x, evec1.y, evec2.x, evec2.y);
+    }
+    else {
+        output = mat2(evec2.x, evec2.y, evec1.x, evec1.y);
+    }
+
+    return output;
+}
+
+
 void main() {
-    // vec4 color = (1.0 + uTau) * gray_blur(uSampler, vTextureCoord, uResolution, uSigma, uKernelSize) - uTau * gray_blur(uSampler, vTextureCoord, uResolution, uK * uSigma, uKernelSize);
     vec4 color = (1.0 + uTau) * gaussian_blur(uSampler, vTextureCoord, uResolution, uSigma) - uTau * gaussian_blur(uSampler, vTextureCoord, uResolution, uK * uSigma);
-    if (uMode == 1)
-    {
+    if (uMode == 1) {
         gl_FragColor = ntonethresh(color);
     }
     else {
@@ -217,8 +259,3 @@ void main() {
     }
     // gl_FragColor = gaussian_blur(uSampler, vTextureCoord, uResolution, uSigma);
 }
-
-
-// void main(void) {
-//     gl_FragColor = texture2D(uSampler, vTextureCoord);
-// }

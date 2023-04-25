@@ -6,7 +6,9 @@
   <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/gl-matrix/2.8.1/gl-matrix-min.js"></script> -->
   <script src="vertexDOGShader.glsl"></script>
   <script src="fragmentDOGShader.glsl"></script>
-  <style>
+  <link rel="stylesheet" href="style.css">
+
+  <!-- <style>
     /* { box-sizing: border-box; margin: 0; padding: 0; } */
     body { font-family: Arial, sans-serif; color: white; background: linear-gradient(to right, #0f2027, #203a43, #2c5364); }
     
@@ -41,7 +43,7 @@
 
     .button-container { display: block; justify-content: center; align-items: center; width: 80%; margin: auto; padding: 20px;  }
     
-  </style>
+  </style> -->
 </head>
 
 <body>
@@ -82,23 +84,27 @@
     <input type="range" min="1" max="100" value="3" class="slider" id="kernel_size">
     <h4 id="canvas_width_val">Tau:</h4>
     <input type="range" min="1" max="100" value="16" class="slider" id="canvas_width">
-    <br>
-    <br>
-    <h4 id="mode">Mode: N Color Mapping</h4>
-    <button type="button" id="toggle_mode" onclick="updateMode()">Toggle Mode</button>
-    <br>
-    <br>
-    <h4 id="swap-palette-scheme">Swap Palette Scheme</h4>
-    <button type="button" id="toggle_scheme" onclick="reversePalette()">Switch Palette</button>
-    <br>
-    <br>
+    <table>
+      <tr>
+        <td>
+          <h4 id="mode">Mode: N Color Mapping</h4>
+          <button type="button" id="toggle_mode" onclick="updateMode()">Toggle Mode</button>
+        </td>
+        <td>
+          <h4 id="swap-palette-scheme">Swap Palette Scheme</h4>
+          <button type="button" id="toggle_scheme" onclick="reversePalette()" style="text-align: center; margin: auto">Switch Palette</button>
+        </td>
+      </tr>
+    </table>
     <h4>Enter a pallete url from coolers ex: https://coolors.co/palette/e63946-f1faee-a8dadc-457b9d-1d3557</h4>
     <input type="text" id="palette_url">
-    <button type="button" id="submit_palette" onclick="updatePalette()">Change Palette</button>
+    <button type="button" id="submit_palette" onclick="updatePalette()" style="text-align: center">Change Palette</button>
     <br>
     <br>
-    <select id="paletteDropdown" onchange="updatePalettePresets()">
-    </select>
+    <div class="dropdown">
+      <select id="paletteDropdown" onchange="updatePalettePresets()">
+      </select>
+    </div>
   </div>
 
   <h3>Logs</h3>

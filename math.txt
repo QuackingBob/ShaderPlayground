@@ -1,0 +1,9 @@
+\begin{align*} \text{To find eigenvalues, we use the formula: } A v&= \lambda v \\ \text{where } A &= \begin{pmatrix} a & b \\ c & d \end{pmatrix} \text{ and } v= \begin{pmatrix} x \\ y \end{pmatrix} \\ \begin{pmatrix} a & b \\ c & d \end{pmatrix} \begin{pmatrix} x \\ y \end{pmatrix} &= \lambda \begin{pmatrix} x \\ y \end{pmatrix}, \text{ which can be written in components as } \\ ax + by &= \lambda x \\ cx + dy &= \lambda y \end{align*}
+
+We want to solve for non-zero solution, such that the system becomes
+
+\begin{align*} (a- \lambda)x + by&=0 \\ cx + (d-\lambda)y &=0 \end{align*}
+
+We can prove that given a matrix A whose determinant is not equal to zero, the only equilibrium point for the linear system is the origin, meaning that to solve the system above we take the determinant and set it equal to zero.
+
+\begin{align*} \det \begin{pmatrix} a-\lambda & b \\ c & d-\lambda \end{pmatrix}&= 0 \\ \text{Every time we compute eigenvalues and eigenvectors we use this format, which can also be written as } \\ \det(A - \lambda I) &=0, \text{ where I is the Identity matrix } I=\begin{pmatrix} 1 & 0 \\ 0 & 1 \end{pmatrix}. \\ \text{Computation of } \det(A - \lambda I) =0 \text{ leads to the Characteristic Polynomial, where the roots of this polynomial are the eigenvalues of the matrix A.} \\ \det(A - \lambda I)&=\det \begin{pmatrix} a-\lambda & b \\ c & d-\lambda \end{pmatrix} = (a-\lambda)(d-\lambda)-bc=0, \text{ which expands to the quadratic polynomial } \\ \lambda^2 - (a+d)\lambda +(ad-bc)&=0. \\ \text{This is referred to as the characteristic polynomial, where the characteristic polynomial always has two roots. These roots can be real or complex, and they do not have to be distinct. If the roots are complex we say that the matrix has complex eigenvalues. Otherwise, we say that the matrix has real eigenvalues.} \end{align*}
